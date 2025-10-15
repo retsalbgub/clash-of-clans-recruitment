@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Clan Stats</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --r:14px; --shadow:0 8px 28px rgba(0,0,0,.08); }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#f6f7fb; color:#222; }
+    .wrap { max-width: 760px; margin: 40px auto; padding: 0 16px; }
+    .card { background:#fff; border-radius: var(--r); box-shadow: var(--shadow); padding: 20px; }
+    .row { display:flex; gap:16px; align-items:center; }
+    .badge { width:84px; height:84px; border-radius: 12px; object-fit: contain; background:#eee; }
+    h1 { font-size: 26px; margin:0; }
+    .small { color:#666; font-size: 13px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top: 14px; }
+    .stat { background:#fafbfe; border:1px solid #edf0f6; border-radius:12px; padding:12px; }
+    .stat .k { font-size:12px; color:#666; }
+    .stat .v { font-weight:600; margin-top:2px; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid #e5e7ef; background:#fafafa; font-size:12px; margin: 4px 6px 0 0; }
+    .desc { margin-top:12px; white-space: pre-wrap; }
+    .actions { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .btn { text-decoration:none; border:1px solid #e3e6ef; padding:10px 14px; border-radius:10px; background:#fff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="stats" class="card">
+      <div class="small">Loading clan stats…</div>
+    </div>
+  </div>
+
+  <script>
+    // ---- CONFIG ----
+    const API_BASE = "https://clan-api.vercel.app";  // <- change
+    const CLAN_TAG = "%232PG0VJYLR";                  // <- change (URL-encoded: # => %23)
+    const qs = new URLSearchParams(location.search);
+    const tag = qs.get("tag") || CLAN_TAG;
+
+    async function getClan() {
+      const r = await fetch(`${API_BASE}/api/clan?tag=${encodeURIComponent(tag)}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`API ${r.status}`);
+      return r.json();
+    }
+
+    function n(x){ return (x ?? "-").toLocaleString?.() ?? x ?? "-"; }
+
+    function render(clan){
+      const el = document.getElementById("stats");
+      const badge = clan.badgeUrls?.large || clan.badgeUrls?.medium || clan.badgeUrls?.small || "";
+      const labels = (clan.labels || []).map(l => `<span class="pill">${l.name}</span>`).join("");
+
+      // Note: Clan “leagues” you’ll commonly want:
+      //  - Clan War League: clan.warLeague?.name  (e.g., "Master II")
+      //  - Regular league is per-player, not per-clan (so not shown here)
+      //  - Capital doesn’t expose a named league on the clan object; we show Capital Hall + points instead.
+
+      el.innerHTML = `
+        <div class="row">
+          <img class="badge" src="${badge}" alt="Clan badge">
+          <div>
+            <h1>${clan.name} <span class="small">(${clan.tag})</span></h1>
+            <div class="small">${clan.location?.name ? clan.location.name + " • " : ""}Level ${n(clan.clanLevel)} • ${n(clan.members)}/50 members</div>
+            ${labels ? `<div style="margin-top:6px;">${labels}</div>` : ""}
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="stat"><div class="k">Clan War League</div><div class="v">${clan.warLeague?.name ?? "-"}</div></div>
+          <div class="stat"><div class="k">War Wins</div><div class="v">${n(clan.warWins)}</div></div>
+
+          <div class="stat"><div class="k">War Win Streak</div><div class="v">${n(clan.warWinStreak)}</div></div>
+          <div class="stat"><div class="k">War Frequency</div><div class="v">${clan.warFrequency ?? "-"}</div></div>
+
+          <div class="stat"><div class="k">Clan Points</div><div class="v">${n(clan.clanPoints)}</div></div>
+          <div class="stat"><div class="k">Versus Points</div><div class="v">${n(clan.clanVersusPoints)}</div></div>
+
+          <div class="stat"><div class="k">Required Trophies</div><div class="v">${n(clan.requiredTrophies)}</div></div>
+          <div class="stat"><div class="k">Type</div><div class="v">${clan.type ?? "-"}</div></div>
+
+          <div class="stat"><div class="k">Capital Hall</div><div class="v">${clan.clanCapital?.capitalHallLevel ?? "-"}</div></div>
+          <div class="stat"><div class="k">Capital Points</div><div class="v">${n(clan.clanCapital?.points)}</div></div>
+        </div>
+
+        ${clan.description ? `<div class="desc">${clan.description}</div>` : ""}
+
+        <div class="actions">
+          <a class="btn" href="https://link.clashofclans.com/en/?action=OpenClanProfile&tag=${encodeURIComponent(clan.tag.replace('#','%23'))}">Open in Clash of Clans</a>
+          <a class="btn" href="https://link.clashofclans.com/en/?action=JoinClan&tag=${encodeURIComponent(clan.tag.replace('#','%23'))}">Request to Join</a>
+        </div>
+
+        <div class="small" style="margin-top:8px;">Updated: ${new Date().toLocaleString()}</div>
+      `;
+    }
+
+    (async () => {
+      const box = document.getElementById("stats");
+      try { render(await getClan()); }
+      catch(e){ box.innerHTML = `<div class="small" style="color:#b00020">Failed to load: ${e.message}</div>`; }
+    })();
+  </script>
+</body>
+</html>
