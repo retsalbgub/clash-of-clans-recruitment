@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Clan War & Progress Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f6f7fb;--card:#fff;--muted:#667085;--border:#e7e9f3;
+      --shadow:0 10px 30px rgba(0,0,0,.08);--r:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:1200px;margin:28px auto;padding:0 16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    h1{margin:0;font-size:28px}
+    .muted{color:var(--muted);font-size:13px}
+    .compare{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;margin:10px 0}
+    .compare table{width:100%;border-collapse:collapse;font-size:14px}
+    .compare th,.compare td{padding:8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:10px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px}
+    .row{display:flex;gap:14px;align-items:center}
+    .badge{width:84px;height:84px;border-radius:12px;background:#eef1f6;object-fit:contain}
+    .name{font-size:18px;font-weight:700;margin:0;line-height:1.2}
+    .tag{font-size:12px;color:var(--muted)}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .stat{background:#fafbff;border:1px solid var(--border);border-radius:12px;padding:10px}
+    .k{font-size:12px;color:var(--muted)}
+    .v{font-weight:600;margin-top:2px}
+    .section{border-top:1px dashed var(--border);padding-top:10px;margin-top:6px}
+    .warlines{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+    .pill{display:inline-block;padding:3px 8px;border:1px solid var(--border);border-radius:999px;background:#f7f8fd;font-size:12px;margin-right:6px}
+    .actions{margin-top:auto;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{text-decoration:none;border:1px solid var(--border);background:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    .btn:hover{background:#f7f8fc}
+    .error{color:#b00020;font-size:13px;word-break:break-word}
+    footer{margin-top:18px;color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>War Performance & Progression</h1>
+      <div class="muted">Live Clash of Clans data via our Vercel API.</div>
+    </header>
+
+    <div class="compare">
+      <table id="compareTbl">
+        <thead>
+          <tr>
+            <th>Clan</th>
+            <th>Level</th>
+            <th>CWL</th>
+            <th>War Wins</th>
+            <th>Win Streak</th>
+            <th>War Freq</th>
+            <th>Clan Points</th>
+            <th>Members</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="grid" class="grid"></div>
+
+    <footer>Last updated: <span id="stamp"></span></footer>
+  </div>
+
+  <script>
+    const API_BASE = "https://clan-api.vercel.app";
+    const CLANS = ["#CRUYUPOP", "#2PGOVJYLR", "#2JQP9QOU2"];
+    const $ = s => document.querySelector(s);
+    const fmt = n => (n?.toLocaleString?.() ?? n ?? "–");
+    const safe = s => (s ?? "–");
+
+    const normalizeTag = tag => {
+      const raw = decodeURIComponent(tag);
+      return raw.startsWith("#") ? "%23" + raw.slice(1)
+           : raw.startsWith("%23") ? raw
+           : "%23" + raw;
+    };
+    const deepLink = (tag, action="OpenClanProfile") => 
+      `https://link.clashofclans.com/en/?action=${action}&tag=${normalizeTag(tag)}`;
+
+    async function apiGet(path, params){
+      const qs = new URLSearchParams(params || {}).toString();
+      const url = `${API_BASE}${path}${qs ? ("?" + qs) : ""}`;
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error(`API ${r.status}: ${await r.text()}`);
+      return r.json();
+    }
+    const getClan = tag => apiGet("/api/clan", { tag });
+    const getWarlog = (tag, limit=10) => apiGet("/api/warlog", { tag, limit });
+    const getCurrent = tag => apiGet("/api/currentwar", { tag });
+
+    function makeCard(tag){
+      const el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML = `
+        <div class="row">
+          <div class="badge" style="display:flex;align-items:center;justify-content:center;font-size:12px;color:#90a0b5;">…</div>
+          <div>
+            <div class="name">Loading…</div>
+            <div class="tag">${tag}</div>
+            <div class="pills" data-pills></div>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div class="stat"><div class="k">Clan Level</div><div class="v" data-k="level">–</div></div>
+          <div class="stat"><div class="k">Members</div><div class="v" data-k="members">–</div></div>
+          <div class="stat"><div class="k">War League</div><div class="v" data-k="cwl">–</div></div>
+          <div class="stat"><div class="k">War Frequency</div><div class="v" data-k="freq">–</div></div>
+          <div class="stat"><div class="k">War Wins</div><div class="v" data-k="wins">–</div></div>
+          <div class="stat"><div class="k">Win Streak</div><div class="v" data-k="streak">–</div></div>
+          <div class="stat"><div class="k">Clan Points</div><div class="v" data-k="points">–</div></div>
+          <div class="stat"><div class="k">Win Ratio (last 10)</div><div class="v" data-k="ratio">–</div></div>
+        </div>
+
+        <div class="section">
+          <div class="k">Last 5 Wars</div>
+          <div class="warlines" data-k="last5">–</div>
+        </div>
+
+        <div class="section">
+          <div class="k">Current War</div>
+          <div class="v" data-k="current">–</div>
+        </div>
+
+        <div class="actions">
+          <a class="btn" data-open>Open in Clash of Clans</a>
+          <a class="btn" data-join>Request to Join</a>
+        </div>
+        <div class="error" data-error></div>
+      `;
+      return el;
+    }
+
+    function updateCompareRow(tbody, clan){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${clan.name} <span class="muted">(${clan.tag})</span></td>
+        <td>${fmt(clan.clanLevel)}</td>
+        <td>${safe(clan.warLeague?.name)}</td>
+        <td>${fmt(clan.warWins)}</td>
+        <td>${fmt(clan.warWinStreak)}</td>
+        <td>${safe(clan.warFrequency)}</td>
+        <td>${fmt(clan.clanPoints)}</td>
+        <td>${fmt(clan.members)}/50</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function renderClan(el, clan){
+      const badge = clan.badgeUrls?.large || clan.badgeUrls?.medium || clan.badgeUrls?.small;
+      if (badge) el.querySelector(".badge").outerHTML = `<img class="badge" alt="Clan badge" src="${badge}">`;
+      el.querySelector(".name").textContent = clan.name || "Unknown";
+      el.querySelector(".tag").textContent  = clan.tag || el.querySelector(".tag").textContent;
+
+      el.querySelector('[data-k="level"]').textContent   = fmt(clan.clanLevel);
+      el.querySelector('[data-k="members"]').textContent = `${fmt(clan.members)}/50`;
+      el.querySelector('[data-k="cwl"]').textContent     = safe(clan.warLeague?.name);
+      el.querySelector('[data-k="freq"]').textContent    = safe(clan.warFrequency);
+      el.querySelector('[data-k="wins"]').textContent    = fmt(clan.warWins);
+      el.querySelector('[data-k="streak"]').textContent  = fmt(clan.warWinStreak);
+      el.querySelector('[data-k="points"]').textContent  = fmt(clan.clanPoints);
+
+      const pills = el.querySelector('[data-pills]');
+      pills.innerHTML = (clan.labels || []).map(l => `<span class="pill">${l.name}</span>`).join("");
+
+      el.querySelector('[data-open]').href = deepLink(clan.tag, "OpenClanProfile");
+      el.querySelector('[data-join]').href = deepLink(clan.tag, "JoinClan");
+    }
+
+    function renderWarlog(el, warlog){
+      const last = warlog?.items?.slice?.(0, 10) || [];
+      const last5 = last.slice(0,5);
+      const toSymbol = r => r==="win"?"W":r==="lose"?"L":r==="tie"?"D":"?";
+      const line = last5.map(w => toSymbol(w.result)).join(" ");
+      el.querySelector('[data-k="last5"]').textContent = line || "–";
+
+      const wins = last.filter(w => w.result==="win").length;
+      const draws = last.filter(w => w.result==="tie").length;
+      const losses = last.filter(w => w.result==="lose").length;
+      const total = last.length || 1;
+      const ratio = Math.round((wins/total)*100);
+      el.querySelector('[data-k="ratio"]').textContent = `${ratio}% (W${wins}/D${draws}/L${losses})`;
+    }
+
+    function renderCurrentWar(el, data){
+      if (!data || data.state==="notInWar") {
+        el.querySelector('[data-k="current"]').textContent = "Not in war";
+        return;
+      }
+      const st = data.state;
+      const opp = data.opponent?.name ? `${data.opponent.name} (${data.opponent.tag || ""})` : "TBD";
+      el.querySelector('[data-k="current"]').textContent =
+        `${st==="preparation"?"Preparation vs":st==="inWar"?"In War vs":"War Ended vs"} ${opp}`;
+    }
+
+    function renderError(el, msg){
+      el.querySelector('[data-error]').textContent = msg || "Failed to load";
+    }
+
+    (async () => {
+      const grid = $("#grid");
+      const compareBody = $("#compareTbl tbody");
+      const cards = CLANS.map(tag => {
+        const el = makeCard(tag);
+        grid.appendChild(el);
+        return { tag, el };
+      });
+
+      for (const { tag, el } of cards) {
+        try {
+          const clan = await getClan(tag);
+          renderClan(el, clan);
+          updateCompareRow(compareBody, clan);
+          getWarlog(tag, 10).then(wl => renderWarlog(el, wl)).catch(()=>{});
+          getCurrent(tag).then(cw => renderCurrentWar(el, cw)).catch(()=>{});
+        } catch (e) {
+          renderError(el, e.message);
+          el.querySelector('[data-open]').href = deepLink(tag, "OpenClanProfile");
+          el.querySelector('[data-join]').href = deepLink(tag, "JoinClan");
+        }
+      }
+      $("#stamp").textContent = new Date().toLocaleString();
+    })();
+  </script>
+</body>
+</html>
