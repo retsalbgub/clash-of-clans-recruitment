@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+
+  <!-- 🌐 Open Graph Meta Tags for Discord / Facebook -->
+<meta property="og:title" content="Clash of Clans Clan Card" />
+<meta property="og:site_name" content="Clash of Clans Stats" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://yourdomain.com/index.html" />
+<meta property="og:description" content="View live Clash of Clans clan stats including level, war league, win streak, and more. Pass a ?tag=#CLANTAG in the URL to view any clan instantly." />
+<meta property="og:image" content="https://yourdomain.com/preview-card.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+
+  <meta charset="utf-8" />
+  <title>Clan Card</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--muted:#667085;--border:#e7e9f3;--shadow:0 10px 30px rgba(0,0,0,.08);--r:16px}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:760px;margin:28px auto;padding:0 16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    h1{margin:0;font-size:24px}
+    .muted{color:var(--muted);font-size:13px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px}
+    .row{display:flex;gap:14px;align-items:center}
+    .badge{width:84px;height:84px;border-radius:12px;background:#eef1f6;object-fit:contain}
+    .name{font-size:20px;font-weight:700;margin:0;line-height:1.2}
+    .tag{font-size:12px;color:var(--muted)}
+    .pills{display:flex;gap:6px;flex-wrap:wrap}
+    .pill{display:inline-block;padding:3px 8px;border:1px solid var(--border);border-radius:999px;background:#f7f8fd;font-size:12px}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .stat{background:#fafbff;border:1px solid var(--border);border-radius:12px;padding:10px}
+    .k{font-size:12px;color:var(--muted)}
+    .v{font-weight:600;margin-top:2px}
+    .section{border-top:1px dashed var(--border);padding-top:10px;margin-top:6px}
+    .warlines{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+    .actions{margin-top:auto;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{text-decoration:none;border:1px solid var(--border);background:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    .btn:hover{background:#f7f8fc}
+    .error{color:#b00020;font-size:13px;word-break:break-word}
+    .notice{background:#fff7e6;border:1px solid #ffe2ad;padding:10px;border-radius:10px;margin-bottom:12px;font-size:14px}
+    form{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+    input[type="text"]{padding:10px;border:1px solid var(--border);border-radius:10px;min-width:220px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Clan Card</h1>
+      <div class="muted">Pass <code>?tag=#CLANTAG</code> in the URL.</div>
+    </header>
+
+    <div id="notice" class="notice" style="display:none"></div>
+
+    <div id="card" class="card">
+      <div class="row">
+        <div class="badge" style="display:flex;align-items:center;justify-content:center;font-size:12px;color:#90a0b5;">…</div>
+        <div>
+          <div class="name">Waiting for tag…</div>
+          <div class="tag" id="tagText"></div>
+          <div class="pills" data-pills></div>
+        </div>
+      </div>
+
+      <div class="kv">
+        <div class="stat"><div class="k">Clan Level</div><div class="v" data-k="level">–</div></div>
+        <div class="stat"><div class="k">Members</div><div class="v" data-k="members">–</div></div>
+        <div class="stat"><div class="k">War League</div><div class="v" data-k="cwl">–</div></div>
+        <div class="stat"><div class="k">War Frequency</div><div class="v" data-k="freq">–</div></div>
+        <div class="stat"><div class="k">War Wins</div><div class="v" data-k="wins">–</div></div>
+        <div class="stat"><div class="k">Win Streak</div><div class="v" data-k="streak">–</div></div>
+        <div class="stat"><div class="k">Clan Points</div><div class="v" data-k="points">–</div></div>
+        <div class="stat"><div class="k">Win Ratio (last 10)</div><div class="v" data-k="ratio">–</div></div>
+      </div>
+
+      <div class="section">
+        <div class="k">Last 5 Wars</div>
+        <div class="warlines" data-k="last5">–</div>
+      </div>
+
+      <div class="section">
+        <div class="k">Current War</div>
+        <div class="v" data-k="current">–</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" data-open>Open in Clash of Clans</a>
+        <a class="btn" data-join>Request to Join</a>
+      </div>
+
+      <div class="error" data-error></div>
+    </div>
+
+    <div id="helper" style="margin-top:12px; display:none;">
+      <form id="jump">
+        <input type="text" id="tagInput" placeholder="#CLANTAG (e.g. #2PG0VJYLR)" />
+        <button class="btn">Go</button>
+      </form>
+      <div class="muted">Tip: your page URL should look like <code>?tag=%23YOURTAG</code> or <code>?tag=#YOURTAG</code>.</div>
+    </div>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const API_BASE = "https://clan-api.vercel.app"; // Change if your API domain differs
+
+    // ===== UTILS =====
+    const $ = s => document.querySelector(s);
+    const fmt = n => (n?.toLocaleString?.() ?? n ?? "–");
+    const safe = s => (s ?? "–");
+
+    const normalizeTag = (tag) => {
+      const raw = decodeURIComponent(tag);
+      return raw.startsWith("#") ? "%23" + raw.slice(1)
+           : raw.startsWith("%23") ? raw
+           : "%23" + raw;
+    };
+    const deepLink = (tag, action="OpenClanProfile") => `https://link.clashofclans.com/en/?action=${action}&tag=${normalizeTag(tag)}`;
+
+    async function apiGet(path, params){
+      const qs = new URLSearchParams(params || {}).toString();
+      const url = `${API_BASE}${path}${qs ? ("?" + qs) : ""}`;
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error(`API ${r.status}: ${await r.text()}`);
+      return r.json();
+    }
+    const getClan   = (tag) => apiGet("/api/clan",      { tag });
+    const getWarlog = (tag, limit=10) => apiGet("/api/warlog",   { tag, limit });
+    const getCurrent= (tag) => apiGet("/api/currentwar", { tag });
+
+    function renderClan(el, clan){
+      const badge = clan.badgeUrls?.large || clan.badgeUrls?.medium || clan.badgeUrls?.small;
+      if (badge) el.querySelector(".badge").outerHTML = `<img class="badge" alt="Clan badge" src="${badge}">`;
+      el.querySelector(".name").textContent = clan.name || "Unknown";
+      el.querySelector("#tagText").textContent = clan.tag || "";
+
+      el.querySelector('[data-k="level"]').textContent   = fmt(clan.clanLevel);
+      el.querySelector('[data-k="members"]').textContent = `${fmt(clan.members)}/50`;
+      el.querySelector('[data-k="cwl"]').textContent     = safe(clan.warLeague?.name);
+      el.querySelector('[data-k="freq"]').textContent    = safe(clan.warFrequency);
+      el.querySelector('[data-k="wins"]').textContent    = fmt(clan.warWins);
+      el.querySelector('[data-k="streak"]').textContent  = fmt(clan.warWinStreak);
+      el.querySelector('[data-k="points"]').textContent  = fmt(clan.clanPoints);
+
+      const pills = el.querySelector('[data-pills]');
+      pills.innerHTML = (clan.labels || []).map(l => `<span class="pill">${l.name}</span>`).join("");
+
+      el.querySelector('[data-open]').href = deepLink(clan.tag, "OpenClanProfile");
+      el.querySelector('[data-join]').href = deepLink(clan.tag, "JoinClan");
+    }
+
+    function renderWarlog(el, warlog){
+      const last = warlog?.items?.slice?.(0, 10) || [];
+      const last5 = last.slice(0,5);
+      const toSymbol = r => r==="win"?"W":r==="lose"?"L":r==="tie"?"D":"?";
+      const line = last5.map(w => toSymbol(w.result)).join(" ");
+      el.querySelector('[data-k="last5"]').textContent = line || "–";
+
+      const wins = last.filter(w => w.result==="win").length;
+      const draws= last.filter(w => w.result==="tie").length;
+      const losses = last.filter(w => w.result==="lose").length;
+      const total = last.length || 1;
+      const ratio = Math.round((wins/total)*100);
+      el.querySelector('[data-k="ratio"]').textContent = `${ratio}% (W${wins}/D${draws}/L${losses})`;
+    }
+
+    function renderCurrentWar(el, data){
+      if (!data || data.state==="notInWar") {
+        el.querySelector('[data-k="current"]').textContent = "Not in war";
+        return;
+      }
+      const st = data.state; // preparation/inWar/warEnded
+      const opp = data.opponent?.name ? `${data.opponent.name} (${data.opponent.tag || ""})` : "TBD";
+      el.querySelector('[data-k="current"]').textContent =
+        `${st==="preparation"?"Preparation vs":st==="inWar"?"In War vs":"War Ended vs"} ${opp}`;
+    }
+
+    function renderError(el, msg){
+      el.querySelector('[data-error]').textContent = msg || "Failed to load";
+    }
+
+    // Simple helper to show a small input if no tag was provided
+    function showNoTagHelp(){
+      const notice = $("#notice");
+      const helper = $("#helper");
+      notice.style.display = "block";
+      helper.style.display = "block";
+      notice.innerHTML = `
+        No <code>?tag=</code> provided. Add it to the URL like:
+        <div style="margin-top:6px"><code>?tag=%23YOURTAG</code> or <code>?tag=#YOURTAG</code></div>
+      `;
+      // small form to jump with a tag
+      const form = $("#jump");
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const val = $("#tagInput").value.trim();
+        if (!val) return;
+        const next = new URL(location.href);
+        next.searchParams.set("tag", val);
+        location.href = next.toString();
+      });
+    }
+
+(async () => {
+  const params = new URLSearchParams(location.search);
+  let tagParam = params.get("tag");
+
+  // Fallback: if user typed the tag after the # (e.g. singleclan.html#2PG0VJYLR)
+  if (!tagParam && location.hash) {
+    tagParam = location.hash.replace(/^#/, "");
+  }
+
+  // Show helper if nothing provided
+  if (!tagParam) {
+    showNoTagHelp();
+    return;
+  }
+
+  // Normalize so the API always gets %23TAG (works whether user typed #TAG or %23TAG)
+  const normalized = normalizeTag(tagParam);  // -> %232PG0VJYLR
+  // Show friendly text
+  $("#tagText").textContent = decodeURIComponent(normalized); // shows #2PG0VJYLR
+
+  const el = $("#card");
+  try {
+    const clan = await getClan(normalized);
+    renderClan(el, clan);
+
+    // War bits (don't block if they fail)
+    getWarlog(normalized, 10).then(wl => renderWarlog(el, wl)).catch(()=>{});
+    getCurrent(normalized).then(cw => renderCurrentWar(el, cw)).catch(()=>{});
+  } catch (e) {
+    renderError(el, e.message);
+    // Keep buttons useful even on error
+    el.querySelector('[data-open]').href = deepLink(normalized, "OpenClanProfile");
+    el.querySelector('[data-join]').href = deepLink(normalized, "JoinClan");
+  }
+})();
+  </script>
+</body>
+</html>
