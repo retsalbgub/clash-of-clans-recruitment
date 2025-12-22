@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CoC Base Layout Designer (DPS Heatmap + Weak Zones + Archer Tower Modes + Wall Limits)</title>
+<style>
+  :root{ --tile:16px; --grid:44; --w:calc(var(--grid)*var(--tile)); --h:calc(var(--grid)*var(--tile)); }
+  body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:#141414; color:#f1f1f1;
+        display:flex; gap:14px; padding:14px; box-sizing:border-box; }
+  #left{ width:480px; background:#1f1f1f; border:1px solid #2c2c2c; border-radius:12px; padding:12px; box-sizing:border-box;
+         display:flex; flex-direction:column; gap:10px; }
+  h2{ margin:0 0 6px 0; font-size:16px; font-weight:800; }
+  .hint{ font-size:12px; opacity:.88; line-height:1.35; }
+  .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#2b2b2b; border:1px solid #3a3a3a; font-size:12px; margin:0 6px 6px 0; }
+  .row{ display:flex; gap:10px; align-items:center; }
+  label{ font-size:12px; opacity:.9; }
+  select,input,button,textarea{ width:100%; padding:8px 10px; border-radius:10px; border:1px solid #333; background:#121212; color:#fff; box-sizing:border-box; outline:none; }
+  button{ cursor:pointer; background:#2a2a2a; }
+  button:hover{ background:#323232; }
+  textarea{ height:140px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; white-space:pre; }
+  .btnRow{ display:flex; gap:8px; }
+  .btnRow button{ flex:1; }
+  #status{ font-size:12px; opacity:.92; min-height:18px; }
+  #counts{
+    font-size:12px; opacity:.9; line-height:1.35;
+    background:#161616; border:1px solid #2a2a2a; border-radius:10px;
+    padding:8px; max-height:170px; overflow:auto;
+  }
+  #counts b{ font-weight:800; }
+  .locked{ opacity:.55; }
+
+  #heatControls{
+    background:#161616; border:1px solid #2a2a2a; border-radius:10px;
+    padding:8px; display:flex; flex-direction:column; gap:8px;
+  }
+  .heatRow{ display:flex; gap:8px; align-items:center; }
+  .mini{ font-size:12px; opacity:.9; }
+  .legend{
+    font-size:12px; opacity:.9; line-height:1.35;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .swatch{ width:14px; height:14px; border-radius:4px; border:1px solid #333; display:inline-block; vertical-align:middle; margin-right:6px; }
+  .sw-ground{ background:#ff3b3b; }
+  .sw-air{ background:#4aa3ff; }
+  .sw-both{ background:#b74aff; }
+
+  #stageWrap{ flex:1; min-width:calc(var(--w) + 2px); display:flex; justify-content:flex-start; align-items:flex-start; }
+  #stage{
+    position:relative; width:var(--w); height:var(--h);
+    border:1px solid #2e2e2e; border-radius:12px; overflow:hidden;
+    background:
+      linear-gradient(#0000 0,#0000 calc(var(--tile) - 1px),#242424 calc(var(--tile) - 1px),#242424 var(--tile)) 0 0/100% var(--tile),
+      linear-gradient(90deg,#0000 0,#0000 calc(var(--tile) - 1px),#242424 calc(var(--tile) - 1px),#242424 var(--tile)) 0 0/var(--tile) 100%,
+      radial-gradient(circle at 20% 20%,#2a2a2a,#171717 70%);
+  }
+
+  #heatCanvas{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; opacity:.78; }
+  #ringCanvas{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; }
+
+  .obj{
+    position:absolute;
+    box-sizing:border-box;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 6px 16px rgba(0,0,0,.35);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:11px; line-height:1.1; padding:4px; user-select:none;
+  }
+  .obj small{ opacity:.88; font-size:10px; }
+
+  .cat-core{ background:rgba(255,215,0,.42); }
+  .cat-resource{ background:rgba(70,170,255,.32); }
+  .cat-army{ background:rgba(170,110,255,.32); }
+  .cat-defense{ background:rgba(255,80,80,.32); }
+  .cat-trap{ background:rgba(80,255,140,.25); }
+  .cat-hero{ background:rgba(255,140,60,.28); }
+  .cat-other{ background:rgba(255,255,255,.10); }
+
+  .obj.is-wall{
+    border-radius:0;
+    padding:0;
+    background:#9a9a9a;
+    border:1px solid #7a7a7a;
+    box-shadow:none;
+  }
+
+  #ghost{ position:absolute; pointer-events:none; border-radius:10px; border:2px dashed rgba(255,255,255,.45);
+          background:rgba(255,255,255,.08); display:none; }
+  #ghost.bad{ border-color:rgba(255,90,90,.75); background:rgba(255,90,90,.10); }
+
+  .subtle{ opacity:.8; font-size:12px; line-height:1.25; }
+  .twoCols{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+</style>
+</head>
+<body>
+
+<div id="left">
+  <div>
+    <h2>CoC Base Layout Designer</h2>
+    <div class="hint">
+      <span class="pill">Click</span> place
+      <span class="pill">Shift+Click</span> erase
+      <span class="pill">Drag</span> paint walls
+      <span class="pill">Shift+Drag</span> erase-drag
+      <span class="pill">R</span> rotate
+      <span class="pill">Ctrl+Click</span> set ring target
+      <span class="pill">Alt+Click</span> edit defense DPS multiplier (target)
+      <span class="pill">Esc</span> clear ghost
+    </div>
+  </div>
+
+  <div class="row">
+    <div style="flex:1;">
+      <label>Town Hall</label>
+      <select id="th"></select>
+    </div>
+    <div style="flex:1.2;">
+      <label>Category</label>
+      <select id="cat"></select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div style="flex:1.2;">
+      <label>Building</label>
+      <select id="building"></select>
+    </div>
+  </div>
+
+  <!-- Archer Tower mode control -->
+  <div class="row" id="archerModeRow" style="display:none;">
+    <div style="flex:1;">
+      <label>Archer Tower Range Mode</label>
+      <select id="archerMode">
+        <option value="long">Long</option>
+        <option value="short">Short</option>
+      </select>
+      <div class="subtle">Affects heatmap + rings for Archer Towers you place.</div>
+    </div>
+  </div>
+
+  <!-- Defense DPS multiplier for NEW placements -->
+  <div class="row" id="dpsRow" style="display:none;">
+    <div style="flex:1;">
+      <label>Defense DPS multiplier (new placements)</label>
+      <input id="dpsMult" type="number" min="0.1" max="10" step="0.1" value="1.0">
+      <div class="subtle">
+        Heatmap is now <b>DPS-weighted</b>. Multiplier scales this defense type’s contribution.
+        (Use <b>Alt+Click</b> a placed defense to change its multiplier.)
+      </div>
+    </div>
+  </div>
+
+  <div class="twoCols">
+    <div>
+      <label>Footprint W</label>
+      <input id="wInp" type="number" min="1" max="44">
+    </div>
+    <div>
+      <label>Footprint H</label>
+      <input id="hInp" type="number" min="1" max="44">
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="applySize">Apply footprint override (this building only)</button>
+  </div>
+
+  <div class="row">
+    <button id="toggleLabels">Toggle labels</button>
+  </div>
+
+  <div id="heatControls">
+    <div class="mini"><b>Heat Map</b> (now DPS-weighted)</div>
+
+    <div class="heatRow">
+      <label style="flex:1;"><input type="radio" name="heatMode" value="off" checked> Off</label>
+      <label style="flex:1;"><input type="radio" name="heatMode" value="ground"> Ground DPS</label>
+      <label style="flex:1;"><input type="radio" name="heatMode" value="air"> Air DPS</label>
+      <label style="flex:1;"><input type="radio" name="heatMode" value="both"> Combined DPS</label>
+    </div>
+
+    <div class="heatRow">
+      <label style="flex:1;">Meta weighting
+        <select id="metaPreset">
+          <option value="balanced">Balanced (50/50)</option>
+          <option value="airheavy">Air-heavy</option>
+          <option value="groundheavy">Ground-heavy</option>
+          <option value="lalo">Lalo (Air)</option>
+          <option value="hybrid">Hybrid (Ground)</option>
+        </select>
+      </label>
+      <label style="flex:1;">Show rings
+        <select id="ringMode">
+          <option value="off">Off</option>
+          <option value="selected">Ring target only</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="heatRow">
+      <label style="flex:1;">Intensity
+        <input id="heatIntensity" type="range" min="0.2" max="2.5" value="1.0" step="0.1">
+      </label>
+      <label style="flex:1;">Softness
+        <input id="heatBlur" type="range" min="0" max="8" value="2" step="1">
+      </label>
+    </div>
+
+    <div class="heatRow">
+      <label style="flex:1;">
+        <input id="weakOnly" type="checkbox"> Show weak zones only
+      </label>
+      <label style="flex:1;">Weak threshold
+        <input id="weakThresh" type="range" min="0.05" max="0.95" value="0.25" step="0.05">
+      </label>
+    </div>
+
+    <div class="legend">
+      <span><span class="swatch sw-ground"></span>Ground</span>
+      <span><span class="swatch sw-air"></span>Air</span>
+      <span><span class="swatch sw-both"></span>Combined</span>
+    </div>
+
+    <div id="heatStats" class="mini"></div>
+  </div>
+
+  <div id="counts"></div>
+
+  <div class="btnRow">
+    <button id="clear">Clear</button>
+    <button id="export">Export</button>
+    <button id="import">Import</button>
+  </div>
+
+  <div>
+    <label>Layout JSON</label>
+    <textarea id="box" placeholder="Exported JSON appears here..."></textarea>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<div id="stageWrap">
+  <div id="stage">
+    <canvas id="heatCanvas"></canvas>
+    <canvas id="ringCanvas"></canvas>
+    <div id="ghost"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const GRID = 44;
+  const TILE = 16;
+
+  const stage = document.getElementById('stage');
+  const ghost = document.getElementById('ghost');
+  const statusEl = document.getElementById('status');
+  const countsEl = document.getElementById('counts');
+
+  const thSel  = document.getElementById('th');
+  const catSel = document.getElementById('cat');
+  const bSel   = document.getElementById('building');
+  const wInp   = document.getElementById('wInp');
+  const hInp   = document.getElementById('hInp');
+
+  const archerModeRow = document.getElementById('archerModeRow');
+  const archerModeSel = document.getElementById('archerMode');
+
+  const dpsRow = document.getElementById('dpsRow');
+  const dpsMultInp = document.getElementById('dpsMult');
+
+  const applySizeBtn = document.getElementById('applySize');
+  const toggleLabelsBtn = document.getElementById('toggleLabels');
+  const box = document.getElementById('box');
+  const clearBtn = document.getElementById('clear');
+  const exportBtn = document.getElementById('export');
+  const importBtn = document.getElementById('import');
+
+  // Heatmap
+  const heatCanvas = document.getElementById('heatCanvas');
+  const heatCtx = heatCanvas.getContext('2d');
+  const ringCanvas = document.getElementById('ringCanvas');
+  const ringCtx = ringCanvas.getContext('2d');
+
+  const heatStatsEl = document.getElementById('heatStats');
+  const heatIntensityEl = document.getElementById('heatIntensity');
+  const heatBlurEl = document.getElementById('heatBlur');
+  const heatModeRadios = Array.from(document.querySelectorAll('input[name="heatMode"]'));
+
+  const metaPresetEl = document.getElementById('metaPreset');
+  const ringModeEl = document.getElementById('ringMode');
+  const weakOnlyEl = document.getElementById('weakOnly');
+  const weakThreshEl = document.getElementById('weakThresh');
+
+  let showLabels = true;
+
+  // WALL LIMITS BY TH (Home Village)
+  const WALL_LIMITS = {
+    1:0, 2:25, 3:50, 4:75, 5:100, 6:125, 7:175, 8:225, 9:250,
+    10:275, 11:300, 12:300, 13:300, 14:325, 15:325, 16:325, 17:325, 18:325
+  };
+  function getWallLimit(th){
+    const maxKnown = Math.max(...Object.keys(WALL_LIMITS).map(n => parseInt(n,10)));
+    if(th > maxKnown) return WALL_LIMITS[maxKnown];
+    return WALL_LIMITS[th] ?? 0;
+  }
+
+  // DEFENSE STATS
+  // NOTE: DPS varies by level. Here we use a base "damage weight" so your heatmap is
+  // genuinely damage-based, and you can scale per placement using DPS multiplier.
+  const DEFENSE_STATS = {
+    "Cannon":              { ground:true,  air:false, range: 9,  baseDps: 1.00 },
+    "Archer Tower":        { ground:true,  air:true,  rangeLong:10, rangeShort:7, baseDps: 0.85 },
+    "Mortar":              { ground:true,  air:false, range:11, baseDps: 0.55 },
+    "Air Defense":         { ground:false, air:true,  range:10, baseDps: 1.00 },
+    "Wizard Tower":        { ground:true,  air:true,  range: 7, baseDps: 0.95 },
+    "Air Sweeper":         { ground:false, air:true,  range: 7, baseDps: 0.40 },
+    "Hidden Tesla":        { ground:true,  air:true,  range: 7, baseDps: 0.95 },
+    "Bomb Tower":          { ground:true,  air:false, range: 7, baseDps: 0.75 },
+    "X-Bow":               { ground:true,  air:true,  range:11, baseDps: 1.25 },
+    "Inferno Tower":       { ground:true,  air:true,  range:10, baseDps: 1.40 },
+    "Eagle Artillery":     { ground:true,  air:true,  range:50, baseDps: 1.10 },
+    "Scattershot":         { ground:true,  air:true,  range: 7, baseDps: 1.10 },
+    "Spell Tower":         { ground:true,  air:true,  range: 7, baseDps: 0.65 },
+    "Monolith":            { ground:true,  air:true,  range:11, baseDps: 1.35 },
+    "Firespitter":         { ground:true,  air:true,  range:10, baseDps: 1.00 },
+    "Ricochet Cannon":     { ground:true,  air:false, range: 9, baseDps: 1.10 },
+    "Multi-Archer Tower":  { ground:true,  air:true,  range:10, baseDps: 1.00 },
+    "Multi-Gear Tower":    { ground:true,  air:true,  range:10, baseDps: 1.10 },
+    "Super Wizard Tower":  { ground:true,  air:true,  range: 7, baseDps: 1.20 },
+    "Revenge Tower":       { ground:true,  air:true,  range:10, baseDps: 1.00 },
+  };
+
+  const META_WEIGHTS = {
+    balanced:    { wg: 0.5, wa: 0.5 },
+    airheavy:    { wg: 0.3, wa: 0.7 },
+    groundheavy: { wg: 0.7, wa: 0.3 },
+    lalo:        { wg: 0.2, wa: 0.8 },
+    hybrid:      { wg: 0.8, wa: 0.2 },
+  };
+
+  const B = (name, cat, w, h, unlockTH, maxByTH) => ({ name, cat, w, h, unlockTH, maxByTH });
+
+  const CATALOG = [
+    // Core
+    B("Town Hall", "core", 4, 4, 1,  {1:1}),
+    B("Clan Castle", "core", 4, 4, 1, {1:1}),
+    B("Builder Hut", "core", 2, 2, 1, {1:1,2:2,3:3,4:4,5:5}),
+    B("Hero Hall", "core", 4, 4, 7, {7:1}),
+
+    // Resources
+    B("Gold Mine", "resource", 3, 3, 1,  {1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:7,9:7,10:7,11:7,12:7,13:7,14:7,15:7,16:7,17:7,18:7}),
+    B("Elixir Collector", "resource", 3, 3, 1, {1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:7,9:7,10:7,11:7,12:7,13:7,14:7,15:7,16:7,17:7,18:7}),
+    B("Dark Elixir Drill", "resource", 3, 3, 7, {7:1,8:2,9:2,10:3,11:3,12:3,13:3,14:3,15:3,16:3,17:3,18:3}),
+    B("Gold Storage", "resource", 3, 3, 1, {1:1,3:2,4:2,5:2,6:2,7:2,8:3,9:4,10:4,11:4,12:4,13:4,14:4,15:4,16:4,17:4,18:4}),
+    B("Elixir Storage", "resource", 3, 3, 1, {1:1,3:2,4:2,5:2,6:2,7:2,8:3,9:4,10:4,11:4,12:4,13:4,14:4,15:4,16:4,17:4,18:4}),
+    B("Dark Elixir Storage", "resource", 3, 3, 7, {7:1,8:1,9:1,10:1,11:1,12:1,13:1,14:1,15:1,16:1,17:1,18:1}),
+
+    // Army
+    B("Army Camp", "army", 4, 4, 1, {1:1,2:1,3:2,4:2,5:3,6:3,7:4,8:4,9:4,10:4,11:4,12:4,13:4,14:4,15:4,16:4,17:4,18:4}),
+    B("Barracks", "army", 3, 3, 1, {1:1,5:2,7:3,8:4}),
+    B("Dark Barracks", "army", 3, 3, 7, {7:1,8:2}),
+    B("Laboratory", "army", 3, 3, 3, {3:1}),
+    B("Spell Factory", "army", 4, 4, 5, {5:1}),
+    B("Dark Spell Factory", "army", 4, 4, 8, {8:1}),
+    B("Siege Workshop", "army", 4, 4, 12, {12:1}),
+    B("Blacksmith", "army", 4, 4, 8, {8:1}),
+    B("Pet House", "army", 4, 4, 14, {14:1}),
+
+    // Defenses
+    B("Cannon", "defense", 3, 3, 1, {1:1,2:2,5:3,7:4,8:5,10:6,13:7,16:7,17:7,18:7}),
+    B("Archer Tower", "defense", 3, 3, 2, {2:1,3:2,4:3,5:4,7:5,8:6,10:7,13:8,16:8,17:8,18:8}),
+    B("Mortar", "defense", 3, 3, 3, {3:1,6:2,8:3,10:4,18:4}),
+    B("Air Defense", "defense", 3, 3, 4, {4:1,6:2,7:3,9:4}),
+    B("Wizard Tower", "defense", 3, 3, 5, {5:1,6:2,8:3,10:4,11:5}),
+    B("Air Sweeper", "defense", 2, 2, 6, {6:1,7:2}),
+    B("Hidden Tesla", "defense", 2, 2, 7, {7:1,8:2,9:3,10:4}),
+    B("Bomb Tower", "defense", 3, 3, 8, {8:1,10:2}),
+    B("X-Bow", "defense", 3, 3, 9, {9:2,10:3,11:4}),
+    B("Inferno Tower", "defense", 3, 3, 10, {10:2,12:3}),
+    B("Eagle Artillery", "defense", 4, 4, 11, {11:1}),
+    B("Scattershot", "defense", 3, 3, 13, {13:2}),
+    B("Spell Tower", "defense", 3, 3, 15, {15:2}),
+    B("Monolith", "defense", 4, 4, 15, {15:1}),
+    B("Firespitter", "defense", 3, 3, 17, {17:2}),
+    B("Ricochet Cannon", "defense", 3, 3, 16, {16:2,17:2,18:2}),
+    B("Multi-Archer Tower", "defense", 3, 3, 16, {16:2,17:2,18:2}),
+    B("Multi-Gear Tower", "defense", 3, 3, 17, {17:1,18:1}),
+    B("Super Wizard Tower", "defense", 3, 3, 18, {18:2}),
+    B("Revenge Tower", "defense", 3, 3, 18, {18:1}),
+
+    // Traps
+    B("Bomb", "trap", 1, 1, 3, {3:2,5:4,7:6,18:6}),
+    B("Spring Trap", "trap", 1, 1, 4, {4:2,5:4,7:6,18:6}),
+    B("Giant Bomb", "trap", 2, 2, 6, {6:1,7:2,8:3,9:4,10:5,18:5}),
+    B("Air Bomb", "trap", 2, 2, 5, {5:1,6:2,7:3,8:4,9:5,18:5}),
+    B("Seeking Air Mine", "trap", 2, 2, 7, {7:1,8:2,9:3,10:4,18:4}),
+    B("Skeleton Trap", "trap", 1, 1, 8, {8:1,9:2,10:3,18:3}),
+    B("Tornado Trap", "trap", 2, 2, 11, {11:1}),
+    B("Giga Bomb", "trap", 2, 2, 17, {17:1,18:1}),
+
+    // Walls
+    B("Wall", "wall", 1, 1, 2, WALL_LIMITS),
+
+    // Heroes (pads)
+    B("Barbarian King (pad)", "hero", 2, 2, 7, {7:1}),
+    B("Archer Queen (pad)", "hero", 2, 2, 9, {9:1}),
+    B("Grand Warden (pad)", "hero", 2, 2, 11, {11:1}),
+    B("Royal Champion (pad)", "hero", 2, 2, 13, {13:1}),
+    B("Minion Prince (pad)", "hero", 2, 2, 17, {17:1}),
+
+    // Other
+    B("Helper Hut", "other", 2, 2, 12, {12:1}),
+    B("B.O.B's Hut", "other", 2, 2, 1, {1:1}),
+    B("Forge", "other", 4, 4, 6, {6:1}),
+    B("Decoration (1×1)", "other", 1, 1, 1, {1:9999}),
+    B("Decoration (2×2)", "other", 2, 2, 1, {1:9999}),
+  ];
+
+  const CAT_LABELS = {
+    core:"Core", resource:"Resources", army:"Army/Support", defense:"Defenses",
+    trap:"Traps", wall:"Walls", hero:"Heroes", other:"Other/Utility"
+  };
+  const catOrder = Object.keys(CAT_LABELS);
+
+  // State
+  let selectedTH = 16;
+  let objects = []; // {id,name,cat,x,y,w,h,r, meta?:{rangeMode?, dpsMult?}}
+  let nextId = 1;
+
+  let selected = { cat:"core", name:"Town Hall", w:4, h:4 };
+  let footprintOverride = {};
+  let rotation = 0;
+  let lastGhost = null;
+
+  let isMouseDown = false;
+  let dragMode = null;
+  let lastDragTile = null;
+
+  let heatMode = "off";
+  let ringTargetId = null;
+
+  function keyOf(cat,name){ return `${cat}::${name}`; }
+  function setStatus(msg){ statusEl.textContent = msg || ""; }
+  function clampInt(v,min,max){ if(Number.isNaN(v)) return min; return Math.max(min, Math.min(max, v)); }
+
+  function getMaxAtTH(item, th){
+    const keys = Object.keys(item.maxByTH || {}).map(n => parseInt(n,10)).filter(n => !Number.isNaN(n)).sort((a,b)=>a-b);
+    let best = 0;
+    for(const k of keys){ if(k <= th) best = item.maxByTH[k]; }
+    return best;
+  }
+
+  function countPlacedByName(name){ return objects.filter(o => o.name === name).length; }
+  function isUnlocked(item, th){ return (item.unlockTH || 1) <= th; }
+
+  function resizeOverlayCanvases(){
+    heatCanvas.width  = GRID * TILE;
+    heatCanvas.height = GRID * TILE;
+    ringCanvas.width  = GRID * TILE;
+    ringCanvas.height = GRID * TILE;
+  }
+
+  function initUI(){
+    thSel.innerHTML = "";
+    for(let t=1;t<=18;t++){
+      const opt = document.createElement('option');
+      opt.value = String(t);
+      opt.textContent = `TH${t}`;
+      thSel.appendChild(opt);
+    }
+    thSel.value = String(selectedTH);
+
+    catSel.innerHTML = "";
+    for(const c of catOrder){
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = CAT_LABELS[c];
+      catSel.appendChild(opt);
+    }
+    catSel.value = selected.cat;
+
+    heatModeRadios.forEach(r => r.addEventListener('change', () => {
+      heatMode = heatModeRadios.find(x => x.checked)?.value || "off";
+      redrawHeatmapAndRings();
+    }));
+    heatIntensityEl.addEventListener('input', redrawHeatmapAndRings);
+    heatBlurEl.addEventListener('input', redrawHeatmapAndRings);
+    metaPresetEl.addEventListener('change', redrawHeatmapAndRings);
+    ringModeEl.addEventListener('change', redrawHeatmapAndRings);
+    weakOnlyEl.addEventListener('change', redrawHeatmapAndRings);
+    weakThreshEl.addEventListener('input', redrawHeatmapAndRings);
+
+    archerModeSel.addEventListener('change', () => {
+      setStatus(`Archer Tower mode set to: ${archerModeSel.value.toUpperCase()} (for new placements).`);
+    });
+
+    dpsMultInp.addEventListener('input', () => {
+      const v = parseFloat(dpsMultInp.value || "1");
+      setStatus(`Defense DPS multiplier (new placements): ${isFinite(v) ? v.toFixed(1) : "1.0"}`);
+    });
+
+    rebuildBuildingSelect();
+    syncFootprintInputs();
+    updateCountsPanel();
+
+    resizeOverlayCanvases();
+    window.addEventListener('resize', () => { resizeOverlayCanvases(); redrawHeatmapAndRings(); });
+  }
+
+  function rebuildBuildingSelect(){
+    const cat = catSel.value;
+    const list = CATALOG.filter(b => b.cat === cat).filter(b => isUnlocked(b, selectedTH));
+    bSel.innerHTML = "";
+
+    if(list.length === 0){
+      const opt = document.createElement('option');
+      opt.value = "";
+      opt.textContent = "(No unlocked buildings in this category)";
+      bSel.appendChild(opt);
+      selected.name = "";
+      selected.w = 1; selected.h = 1;
+      syncFootprintInputs();
+      updateCountsPanel();
+      return;
+    }
+
+    for(const b of list){
+      const max = getMaxAtTH(b, selectedTH);
+      const placed = countPlacedByName(b.name);
+      const opt = document.createElement('option');
+      opt.value = b.name;
+      opt.textContent = `${b.name}  (${placed}/${max === 9999 ? "∞" : max})`;
+      bSel.appendChild(opt);
+    }
+
+    const exists = list.some(x => x.name === selected.name);
+    if(!exists) selected.name = list[0].name;
+    bSel.value = selected.name;
+    setSelectedFromUI();
+  }
+
+  function setSelectedFromUI(){
+    const cat = catSel.value;
+    const name = bSel.value;
+    const base = CATALOG.find(b => b.cat===cat && b.name===name);
+    if(!base) return;
+
+    rotation = 0;
+    const ov = footprintOverride[keyOf(cat,name)];
+    selected = { cat, name, w: ov?.w ?? base.w, h: ov?.h ?? base.h };
+
+    syncFootprintInputs();
+    updateCountsPanel();
+    setStatus(`Selected: ${selected.name} (${selected.w}×${selected.h}) @ TH${selectedTH}`);
+    updateGhostLast();
+
+    // Archer tower mode selector
+    archerModeRow.style.display = (selected.name === "Archer Tower") ? "flex" : "none";
+
+    // Defense DPS multiplier selector (for new placements)
+    const isDefense = (selected.cat === "defense");
+    dpsRow.style.display = isDefense ? "flex" : "none";
+    if(isDefense){
+      const s = DEFENSE_STATS[selected.name];
+      const baseDps = s?.baseDps ?? 1.0;
+      dpsMultInp.title = `Base DPS weight for ${selected.name} is ${baseDps}. Multiplier scales it.`;
+    }
+  }
+
+  function syncFootprintInputs(){ wInp.value = selected.w; hInp.value = selected.h; }
+
+  function updateCountsPanel(){
+    const unlocked = CATALOG.filter(b => isUnlocked(b, selectedTH));
+    const byCat = {};
+    for(const b of unlocked){ (byCat[b.cat] ||= []).push(b); }
+
+    const spotlightCats = ["core","defense","trap"];
+    let html = `<b>TH${selectedTH} limits</b><br/>`;
+    html += `<span style="opacity:.85">Placement is blocked when you reach the cap.</span><br/><br/>`;
+
+    for(const c of spotlightCats){
+      const list = (byCat[c] || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
+      if(list.length === 0) continue;
+      html += `<b>${CAT_LABELS[c]}</b><br/>`;
+      for(const it of list){
+        const max = getMaxAtTH(it, selectedTH);
+        const placed = countPlacedByName(it.name);
+        const maxTxt = (max === 9999) ? "∞" : String(max);
+        const cls = (placed >= max && max !== 9999) ? "locked" : "";
+        html += `<span class="${cls}">${it.name}: ${placed}/${maxTxt}</span><br/>`;
+      }
+      html += `<br/>`;
+    }
+
+    const placedWalls = countPlacedByName("Wall");
+    const wallCap = getWallLimit(selectedTH);
+    const wallCls = (placedWalls >= wallCap) ? "locked" : "";
+    html += `<b>Walls</b><br/>`;
+    html += `<span class="${wallCls}">Wall: ${placedWalls}/${wallCap}</span><br/>`;
+    html += `<span style="opacity:.85">Drag to paint. Shift+drag to erase.</span>`;
+
+    countsEl.innerHTML = html;
+  }
+
+  thSel.addEventListener('change', () => {
+    selectedTH = parseInt(thSel.value,10) || 1;
+    rebuildBuildingSelect();
+    updateCountsPanel();
+    redrawHeatmapAndRings();
+  });
+
+  catSel.addEventListener('change', () => {
+    selected.cat = catSel.value;
+    rebuildBuildingSelect();
+  });
+
+  bSel.addEventListener('change', () => {
+    selected.name = bSel.value;
+    setSelectedFromUI();
+  });
+
+  applySizeBtn.addEventListener('click', () => {
+    const w = clampInt(parseInt(wInp.value,10), 1, GRID);
+    const h = clampInt(parseInt(hInp.value,10), 1, GRID);
+    footprintOverride[keyOf(selected.cat, selected.name)] = {w,h};
+    selected.w = w; selected.h = h;
+    setStatus(`Override: ${selected.name} is now ${w}×${h}`);
+    updateGhostLast();
+    redrawHeatmapAndRings();
+  });
+
+  toggleLabelsBtn.addEventListener('click', () => { showLabels = !showLabels; render(); });
+
+  clearBtn.addEventListener('click', () => {
+    if(!confirm("Clear the entire layout?")) return;
+    objects = []; nextId = 1;
+    ringTargetId = null;
+    render();
+    rebuildBuildingSelect();
+    updateCountsPanel();
+    redrawHeatmapAndRings();
+    setStatus("Cleared.");
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const payload = {
+      version: 9,
+      grid: GRID, tile: TILE,
+      selectedTH,
+      objects,
+      footprintOverride,
+      heatUI: {
+        mode: heatMode,
+        meta: metaPresetEl.value,
+        ringMode: ringModeEl.value,
+        intensity: heatIntensityEl.value,
+        softness: heatBlurEl.value,
+        weakOnly: weakOnlyEl.checked,
+        weakThresh: weakThreshEl.value,
+      }
+    };
+    box.value = JSON.stringify(payload, null, 2);
+    setStatus("Exported JSON.");
+  });
+
+  importBtn.addEventListener('click', () => {
+    try{
+      const data = JSON.parse(box.value);
+      if(!data || !Array.isArray(data.objects)) throw new Error("bad");
+      objects = data.objects.map(o => ({
+        id:o.id, name:o.name, cat:o.cat, x:o.x, y:o.y, w:o.w, h:o.h, r:o.r ?? 0,
+        meta: o.meta || {}
+      }));
+      nextId = Math.max(1, ...objects.map(o => (o.id||0) + 1));
+      footprintOverride = data.footprintOverride || {};
+      selectedTH = data.selectedTH || selectedTH;
+      thSel.value = String(selectedTH);
+
+      if(data.heatUI){
+        heatMode = data.heatUI.mode || "off";
+        heatModeRadios.forEach(r => r.checked = (r.value === heatMode));
+        metaPresetEl.value = data.heatUI.meta || "balanced";
+        ringModeEl.value = data.heatUI.ringMode || "off";
+        heatIntensityEl.value = data.heatUI.intensity || "1.0";
+        heatBlurEl.value = data.heatUI.softness || "2";
+        weakOnlyEl.checked = !!data.heatUI.weakOnly;
+        weakThreshEl.value = data.heatUI.weakThresh || "0.25";
+      }
+
+      render();
+      rebuildBuildingSelect();
+      updateCountsPanel();
+      redrawHeatmapAndRings();
+      setStatus("Imported JSON.");
+    }catch(e){
+      alert("Invalid JSON layout.");
+    }
+  });
+
+  function getFootprint(){
+    let w = selected.w, h = selected.h;
+    if(rotation % 2 === 1) [w,h] = [h,w];
+    return {w,h};
+  }
+
+  function rectsOverlap(a,b){
+    return !(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y);
+  }
+
+  function canPlaceRect(x,y,w,h,ignoreId=null){
+    if(x<0||y<0||x+w>GRID||y+h>GRID) return false;
+    const test = {x,y,w,h};
+    for(const o of objects){
+      if(ignoreId && o.id===ignoreId) continue;
+      if(rectsOverlap(test,o)) return false;
+    }
+    return true;
+  }
+
+  function tileFromMouse(evt){
+    const r = stage.getBoundingClientRect();
+    const px = evt.clientX - r.left;
+    const py = evt.clientY - r.top;
+    return { x: Math.floor(px / TILE), y: Math.floor(py / TILE) };
+  }
+
+  function findObjectAt(x,y){
+    for(let i=objects.length-1;i>=0;i--){
+      const o = objects[i];
+      if(x>=o.x && x<o.x+o.w && y>=o.y && y<o.y+o.h) return o;
+    }
+    return null;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+  }
+
+  function clearStageObjects(){ stage.querySelectorAll('.obj').forEach(el => el.remove()); }
+
+  function makeObjDiv(o){
+    const d = document.createElement('div');
+    d.className = `obj cat-${o.cat}` + (o.cat === "wall" ? " is-wall" : "");
+    d.style.left = (o.x*TILE) + "px";
+    d.style.top  = (o.y*TILE) + "px";
+    d.style.width  = (o.w*TILE) + "px";
+    d.style.height = (o.h*TILE) + "px";
+    if(showLabels && o.cat !== "wall"){
+      let extra = "";
+      if(o.name === "Archer Tower" && o.meta?.rangeMode) extra += ` <small>[${o.meta.rangeMode}]</small>`;
+      if(o.cat === "defense" && o.meta?.dpsMult && o.meta.dpsMult !== 1) extra += ` <small>×${Number(o.meta.dpsMult).toFixed(1)}</small>`;
+      d.innerHTML = `<div><div>${escapeHtml(o.name)}${extra}</div><small>${o.w}×${o.h}</small></div>`;
+    }
+    return d;
+  }
+
+  function render(){
+    clearStageObjects();
+    for(const o of objects) stage.appendChild(makeObjDiv(o));
+  }
+
+  function showGhost(x,y){
+    const {w,h} = getFootprint();
+    let ok = canPlaceRect(x,y,w,h);
+
+    if(selected.cat === "wall" && selected.name === "Wall"){
+      const cap = getWallLimit(selectedTH);
+      const placed = countPlacedByName("Wall");
+      if(placed >= cap) ok = false;
+    }
+
+    ghost.style.left = (x*TILE)+"px";
+    ghost.style.top  = (y*TILE)+"px";
+    ghost.style.width  = (w*TILE)+"px";
+    ghost.style.height = (h*TILE)+"px";
+    ghost.style.display = "block";
+    ghost.classList.toggle("bad", !ok);
+    lastGhost = {x,y};
+  }
+
+  function hideGhost(){ ghost.style.display="none"; ghost.classList.remove("bad"); lastGhost=null; }
+  function updateGhostLast(){ if(lastGhost) showGhost(lastGhost.x,lastGhost.y); }
+
+  function canPlaceThisBuildingByTH(name){
+    const item = CATALOG.find(b => b.name === name);
+    if(!item) return {ok:true};
+
+    if(!isUnlocked(item, selectedTH)) return { ok:false, reason:`${name} is locked at TH${selectedTH}.` };
+
+    const max = getMaxAtTH(item, selectedTH);
+    if(max === 9999) return { ok:true };
+
+    const placed = countPlacedByName(name);
+    if(placed >= max) return { ok:false, reason:`Limit reached for ${name}: ${placed}/${max} at TH${selectedTH}.` };
+
+    return { ok:true };
+  }
+
+  // Walls
+  function placeWallAt(x,y){
+    const item = CATALOG.find(b => b.name === "Wall");
+    if(item && !isUnlocked(item, selectedTH)) return false;
+
+    const placedWalls = countPlacedByName("Wall");
+    const wallCap = getWallLimit(selectedTH);
+    if(placedWalls >= wallCap) return false;
+
+    if(!canPlaceRect(x,y,1,1)) return false;
+    objects.push({ id:nextId++, name:"Wall", cat:"wall", x,y,w:1,h:1,r:0, meta:{} });
+    return true;
+  }
+
+  function eraseAt(x,y){
+    const hit = findObjectAt(x,y);
+    if(!hit) return false;
+    objects = objects.filter(o => o.id !== hit.id);
+    if(ringTargetId === hit.id) ringTargetId = null;
+    return true;
+  }
+
+  // Bresenham line
+  function lineTiles(a,b){
+    const tiles = [];
+    let x0=a.x, y0=a.y, x1=b.x, y1=b.y;
+    const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+    const sx = (x0<x1) ? 1 : -1;
+    const sy = (y0<y1) ? 1 : -1;
+    let err = dx - dy;
+    while(true){
+      tiles.push({x:x0,y:y0});
+      if(x0===x1 && y0===y1) break;
+      const e2 = 2*err;
+      if(e2 > -dy){ err -= dy; x0 += sx; }
+      if(e2 < dx){ err += dx; y0 += sy; }
+    }
+    return tiles;
+  }
+
+  // Heat + Rings helpers
+  function getDefenseRange(o){
+    const s = DEFENSE_STATS[o.name];
+    if(!s) return null;
+    if(o.name === "Archer Tower"){
+      const mode = (o.meta?.rangeMode || "long");
+      return (mode === "short") ? s.rangeShort : s.rangeLong;
+    }
+    return s.range;
+  }
+
+  function getDefensePower(o){
+    const s = DEFENSE_STATS[o.name];
+    if(!s) return 0;
+    const mult = (o.meta?.dpsMult == null) ? 1 : Number(o.meta.dpsMult);
+    const safeMult = (isFinite(mult) && mult > 0) ? mult : 1;
+    return (s.baseDps ?? 1) * safeMult;
+  }
+
+  function getDefenseContributors(){
+    const list = [];
+    for(const o of objects){
+      if(o.cat !== "defense") continue;
+      const stats = DEFENSE_STATS[o.name];
+      if(!stats) continue;
+      const range = getDefenseRange(o);
+      if(!range) continue;
+      const power = getDefensePower(o);
+      const cx = o.x + (o.w / 2);
+      const cy = o.y + (o.h / 2);
+      list.push({ id:o.id, name:o.name, cx, cy, range, power, ground: !!stats.ground, air: !!stats.air });
+    }
+    return list;
+  }
+
+  function redrawRings(){
+    ringCtx.clearRect(0,0,ringCanvas.width, ringCanvas.height);
+    if(ringModeEl.value === "off") return;
+    if(!ringTargetId) return;
+
+    const o = objects.find(x => x.id === ringTargetId);
+    if(!o || o.cat !== "defense") return;
+
+    const stats = DEFENSE_STATS[o.name];
+    if(!stats) return;
+
+    const range = getDefenseRange(o);
+    if(!range) return;
+
+    const cx = (o.x + (o.w/2)) * TILE;
+    const cy = (o.y + (o.h/2)) * TILE;
+    const rPx = range * TILE;
+
+    ringCtx.save();
+    ringCtx.lineWidth = 2;
+
+    let col = "rgba(183,74,255,0.95)";
+    if(stats.ground && !stats.air) col = "rgba(255,59,59,0.95)";
+    if(stats.air && !stats.ground) col = "rgba(74,163,255,0.95)";
+
+    ringCtx.strokeStyle = col;
+    ringCtx.setLineDash([6,4]);
+    ringCtx.beginPath();
+    ringCtx.arc(cx, cy, rPx, 0, Math.PI*2);
+    ringCtx.stroke();
+
+    ringCtx.setLineDash([]);
+    ringCtx.fillStyle = col;
+    ringCtx.beginPath();
+    ringCtx.arc(cx, cy, 3, 0, Math.PI*2);
+    ringCtx.fill();
+
+    ringCtx.restore();
+  }
+
+  function redrawHeatmap(){
+    heatCtx.clearRect(0,0,heatCanvas.width,heatCanvas.height);
+    if(heatMode === "off"){
+      heatStatsEl.innerHTML = `Heatmap: <b>OFF</b>`;
+      return;
+    }
+
+    const intensity = parseFloat(heatIntensityEl.value || "1");
+    const softness = parseInt(heatBlurEl.value || "0", 10);
+    const weakOnly = weakOnlyEl.checked;
+    const weakThresh = parseFloat(weakThreshEl.value || "0.25");
+
+    const weights = META_WEIGHTS[metaPresetEl.value] || META_WEIGHTS.balanced;
+    const wg = weights.wg, wa = weights.wa;
+
+    // DPS heat per tile
+    const heatG = new Float32Array(GRID*GRID);
+    const heatA = new Float32Array(GRID*GRID);
+
+    const defs = getDefenseContributors();
+
+    for(const d of defs){
+      const r = d.range;
+      const minX = Math.max(0, Math.floor(d.cx - r));
+      const maxX = Math.min(GRID-1, Math.floor(d.cx + r));
+      const minY = Math.max(0, Math.floor(d.cy - r));
+      const maxY = Math.min(GRID-1, Math.floor(d.cy + r));
+      const r2 = r*r;
+
+      for(let ty=minY; ty<=maxY; ty++){
+        for(let tx=minX; tx<=maxX; tx++){
+          const dx = (tx + 0.5) - d.cx;
+          const dy = (ty + 0.5) - d.cy;
+          const dist2 = dx*dx + dy*dy;
+          if(dist2 > r2) continue;
+
+          const dist = Math.sqrt(dist2);
+
+          // falloff: keep strongest near core
+          const w = Math.max(0, 1 - (dist / r));
+          const falloff = w*w;
+
+          const contrib = d.power * falloff; // <-- DPS-weighted
+          const idx = ty*GRID + tx;
+
+          if(d.ground) heatG[idx] += contrib;
+          if(d.air)    heatA[idx] += contrib;
+        }
+      }
+    }
+
+    // normalize by max of chosen mode (so overlaps naturally max out)
+    let maxV = 0;
+    for(let i=0;i<GRID*GRID;i++){
+      let v = 0;
+      if(heatMode === "ground") v = heatG[i];
+      else if(heatMode === "air") v = heatA[i];
+      else v = heatG[i] + heatA[i];
+      if(v > maxV) maxV = v;
+    }
+    if(maxV < 1e-9) maxV = 1;
+
+    // stats
+    let uncoveredG=0, uncoveredA=0, sumG=0, sumA=0, scoreSum=0;
+    for(let i=0;i<GRID*GRID;i++){
+      const g = heatG[i], a = heatA[i];
+      sumG += g; sumA += a;
+      scoreSum += (g*wg + a*wa);
+      if(g < 1e-6) uncoveredG++;
+      if(a < 1e-6) uncoveredA++;
+    }
+    const avgG = sumG / (GRID*GRID);
+    const avgA = sumA / (GRID*GRID);
+    const avgScore = scoreSum / (GRID*GRID);
+
+    // draw
+    heatCtx.save();
+    heatCtx.imageSmoothingEnabled = false;
+    const pad = softness;
+
+    for(let ty=0; ty<GRID; ty++){
+      for(let tx=0; tx<GRID; tx++){
+        const idx = ty*GRID + tx;
+
+        let v = 0;
+        if(heatMode === "ground") v = heatG[idx];
+        else if(heatMode === "air") v = heatA[idx];
+        else v = heatG[idx] + heatA[idx];
+
+        let norm = Math.min(1, (v / maxV) * intensity);
+
+        if(weakOnly){
+          if(norm >= weakThresh) continue;
+          // weak zones: invert so weaker shows stronger highlight
+          norm = (weakThresh - norm) / Math.max(weakThresh, 1e-6);
+        } else {
+          if(norm <= 0) continue;
+        }
+
+        const alpha = Math.min(0.95, 0.06 + norm * 0.78);
+
+        let r=0,g=0,b=0;
+        if(heatMode === "ground"){ r=255; g=59;  b=59; }
+        else if(heatMode === "air"){ r=74;  g=163; b=255; }
+        else { r=183; g=74; b=255; }
+
+        heatCtx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+
+        const x = tx*TILE - pad;
+        const y = ty*TILE - pad;
+        heatCtx.fillRect(x, y, TILE + pad*2, TILE + pad*2);
+      }
+    }
+
+    heatCtx.restore();
+
+    const weakLabel = weakOnly ? ` | <b>Weak-only</b> @ ${weakThresh.toFixed(2)}` : "";
+    heatStatsEl.innerHTML =
+      `Heatmap: <b>${heatMode.toUpperCase()}</b> (DPS-weighted)${weakLabel}<br>` +
+      `Meta: <b>${metaPresetEl.options[metaPresetEl.selectedIndex].text}</b><br>` +
+      `Defenses contributing: <b>${defs.length}</b><br>` +
+      `Avg Ground DPS: <b>${avgG.toFixed(2)}</b> (uncovered tiles: <b>${uncoveredG}</b>)<br>` +
+      `Avg Air DPS: <b>${avgA.toFixed(2)}</b> (uncovered tiles: <b>${uncoveredA}</b>)<br>` +
+      `Coverage Score (wg=${wg}, wa=${wa}): <b>${avgScore.toFixed(2)}</b>`;
+  }
+
+  function redrawHeatmapAndRings(){
+    redrawHeatmap();
+    redrawRings();
+  }
+
+  // Mouse / placement
+  stage.addEventListener('mousemove', (evt) => {
+    const {x,y} = tileFromMouse(evt);
+    if(x<0||y<0||x>=GRID||y>=GRID) return;
+
+    showGhost(x,y);
+
+    if(!isMouseDown) return;
+
+    if(dragMode === "paintWall"){
+      const cur = {x,y};
+      const from = lastDragTile ?? cur;
+      const seg = lineTiles(from, cur);
+
+      let changed = false;
+      let hitCap = false;
+
+      for(const t of seg){
+        const ok = placeWallAt(t.x,t.y);
+        if(ok) changed = true;
+        else {
+          const cap = getWallLimit(selectedTH);
+          const placed = countPlacedByName("Wall");
+          if(placed >= cap) hitCap = true;
+        }
+        if(hitCap) break;
+      }
+
+      if(changed){ render(); updateCountsPanel(); redrawHeatmapAndRings(); }
+      if(hitCap) setStatus(`Wall limit reached for TH${selectedTH}: ${countPlacedByName("Wall")}/${getWallLimit(selectedTH)}`);
+
+      lastDragTile = cur;
+    } else if(dragMode === "erase"){
+      const cur = {x,y};
+      const from = lastDragTile ?? cur;
+      const seg = lineTiles(from, cur);
+      let changed = false;
+      for(const t of seg){
+        if(eraseAt(t.x,t.y)) changed = true;
+      }
+      if(changed){ render(); rebuildBuildingSelect(); updateCountsPanel(); redrawHeatmapAndRings(); }
+      lastDragTile = cur;
+    }
+  });
+
+  stage.addEventListener('mouseleave', () => hideGhost());
+  stage.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  stage.addEventListener('mousedown', (evt) => {
+    const {x,y} = tileFromMouse(evt);
+    if(x<0||y<0||x>=GRID||y>=GRID) return;
+
+    // Ctrl+Click: set ring target
+    if(evt.ctrlKey){
+      const hit = findObjectAt(x,y);
+      if(hit && hit.cat === "defense"){
+        ringTargetId = hit.id;
+        setStatus(`Ring target set: ${hit.name}`);
+        redrawHeatmapAndRings();
+      } else setStatus("Ctrl+Click a DEFENSE to set ring target.");
+      return;
+    }
+
+    // Alt+Click: edit DPS multiplier of a placed defense
+    if(evt.altKey){
+      const hit = findObjectAt(x,y);
+      if(hit && hit.cat === "defense"){
+        const current = (hit.meta?.dpsMult == null) ? 1 : Number(hit.meta.dpsMult);
+        const val = prompt(`Set DPS multiplier for ${hit.name} (e.g. 0.5 .. 5). Current: ${isFinite(current)?current:1}`, `${isFinite(current)?current:1}`);
+        if(val != null){
+          const n = Number(val);
+          if(isFinite(n) && n > 0){
+            hit.meta ||= {};
+            hit.meta.dpsMult = Math.max(0.1, Math.min(10, n));
+            render(); redrawHeatmapAndRings();
+            setStatus(`Updated ${hit.name} DPS multiplier to ×${hit.meta.dpsMult.toFixed(1)}`);
+          } else setStatus("Invalid multiplier.");
+        }
+      } else setStatus("Alt+Click a placed DEFENSE to edit its DPS multiplier.");
+      return;
+    }
+
+    isMouseDown = true;
+    lastDragTile = {x,y};
+
+    const shiftErase = evt.shiftKey || evt.button === 2;
+
+    if(shiftErase){
+      dragMode = "erase";
+      if(eraseAt(x,y)){
+        render(); rebuildBuildingSelect(); updateCountsPanel(); redrawHeatmapAndRings();
+        setStatus("Erasing...");
+      } else setStatus("Nothing to erase here.");
+      return;
+    }
+
+    if(selected.cat === "wall" && selected.name === "Wall"){
+      dragMode = "paintWall";
+      if(placeWallAt(x,y)){
+        render(); updateCountsPanel(); redrawHeatmapAndRings();
+        setStatus("Painting walls...");
+      } else {
+        setStatus(`Can't place wall here (limit ${countPlacedByName("Wall")}/${getWallLimit(selectedTH)} or occupied).`);
+      }
+      return;
+    }
+
+    dragMode = "placeOnce";
+
+    const lim = canPlaceThisBuildingByTH(selected.name);
+    if(!lim.ok){ setStatus(lim.reason || "Blocked by TH limit."); return; }
+
+    const {w,h} = getFootprint();
+    if(!canPlaceRect(x,y,w,h)){ setStatus("Can't place here (overlap or out of bounds)."); return; }
+
+    const meta = {};
+    if(selected.name === "Archer Tower") meta.rangeMode = archerModeSel.value;
+    if(selected.cat === "defense"){
+      const m = Number(dpsMultInp.value || "1");
+      meta.dpsMult = (isFinite(m) && m > 0) ? Math.max(0.1, Math.min(10, m)) : 1;
+    }
+
+    const placed = { id:nextId++, name:selected.name, cat:selected.cat, x,y,w,h,r:rotation%2, meta };
+    objects.push(placed);
+
+    if(placed.cat === "defense") ringTargetId = placed.id;
+
+    render(); rebuildBuildingSelect(); updateCountsPanel(); redrawHeatmapAndRings();
+    setStatus(`Placed: ${selected.name} (${w}×${h})`);
+  });
+
+  window.addEventListener('mouseup', () => {
+    isMouseDown = false;
+    dragMode = null;
+    lastDragTile = null;
+  });
+
+  window.addEventListener('keydown', (evt) => {
+    if(evt.key === 'r' || evt.key === 'R'){
+      rotation = (rotation + 1) % 2;
+      const {w,h} = getFootprint();
+      setStatus(`Rotated footprint: ${w}×${h}`);
+      updateGhostLast();
+    }
+    if(evt.key === 'Escape'){ hideGhost(); setStatus("Ghost cleared."); }
+  });
+
+  // Ghost helpers
+  function getFootprintRot(){
+    let w = selected.w, h = selected.h;
+    if(rotation % 2 === 1) [w,h] = [h,w];
+    return {w,h};
+  }
+
+  function showGhostAt(x,y){
+    const {w,h} = getFootprintRot();
+    let ok = canPlaceRect(x,y,w,h);
+
+    if(selected.cat === "wall" && selected.name === "Wall"){
+      const cap = getWallLimit(selectedTH);
+      const placed = countPlacedByName("Wall");
+      if(placed >= cap) ok = false;
+    }
+
+    ghost.style.left = (x*TILE)+"px";
+    ghost.style.top  = (y*TILE)+"px";
+    ghost.style.width  = (w*TILE)+"px";
+    ghost.style.height = (h*TILE)+"px";
+    ghost.style.display = "block";
+    ghost.classList.toggle("bad", !ok);
+    lastGhost = {x,y};
+  }
+
+  function showGhost(x,y){ showGhostAt(x,y); }
+  function hideGhost(){ ghost.style.display="none"; ghost.classList.remove("bad"); lastGhost=null; }
+  function updateGhostLast(){ if(lastGhost) showGhostAt(lastGhost.x,lastGhost.y); }
+
+  // Start
+  function resizeAll(){ resizeOverlayCanvases(); redrawHeatmapAndRings(); }
+
+  initUI();
+  render();
+  resizeAll();
+})();
+</script>
+</body>
+</html>
