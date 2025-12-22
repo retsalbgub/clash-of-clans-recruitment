@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bug's Clan Network | Clash of Clans</title>
+
+<style>
+:root {
+  --gold: #f5c36a;
+  --dark: #0f172a;
+  --panel: rgba(15,23,42,0.85);
+  --accent: #38bdf8;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: "Trebuchet MS", Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.9)),
+    url("https://clashofclans-baselinks.com/wp-content/uploads/2025/05/Champion-War-Base-Scenery-in-clash-of-clans.webp?utm_source=chatgpt.com");
+  background-size: cover;
+  background-position: center;
+  color: white;
+}
+
+/* HERO */
+.hero {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  color: var(--gold);
+  text-shadow: 2px 2px 8px black;
+}
+
+.hero p {
+  max-width: 800px;
+  margin: 20px auto;
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+/* CLAN GRID */
+.clans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  padding: 40px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.clan-card {
+  background: var(--panel);
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  padding: 25px;
+  text-align: center;
+  box-shadow: 0 0 25px rgba(0,0,0,0.6);
+}
+
+.clan-card h2 {
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.clan-card p {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.tag {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin-bottom: 15px;
+}
+
+/* BUTTONS */
+.btn {
+  display: inline-block;
+  margin: 10px 5px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: 0.25s;
+}
+
+.btn-main {
+  background: var(--accent);
+  color: black;
+}
+
+.btn-main:hover {
+  background: white;
+}
+
+.btn-alt {
+  background: transparent;
+  border: 2px solid var(--gold);
+  color: var(--gold);
+}
+
+.btn-alt:hover {
+  background: var(--gold);
+  color: black;
+}
+
+/* FOOTER */
+footer {
+  text-align: center;
+  padding: 25px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Bug's Clan Network</h1>
+  <p>
+    Join our active community.
+    War focused, friendly, organised, and always growing.
+  </p>
+</div>
+
+<!-- CLANS -->
+<div class="clans">
+
+  <div class="clan-card">
+    <h2>Bug’s Minions</h2>
+    <div class="tag">#CRUYUPOP</div>
+    <p>Main war clan. TH14-TH18 Competitive CWL, experienced leadership, serious attackers.</p>
+    <a class="btn btn-main" href="https://retsalbgub.github.io/clash-of-clans-recruitment/singleclan.html?tag=%23CRUYUPOP">Enter Clan Page</a>
+  </div>
+
+  <div class="clan-card">
+    <h2>BugsMiniMinions</h2>
+    <div class="tag">#2PG0VJYLR</div>
+    <p> Developing players TH12-TH14, learning wars, relaxed but structured progression.</p>
+    <a class="btn btn-main" href=" https://retsalbgub.github.io/clash-of-clans-recruitment/singleclan.html?tag=%232PG0VJYLR">Enter Clan Page</a>
+
+  </div>
+
+  <div class="clan-card">
+    <h2>BugsMicros</h2>
+    <div class="tag">#2JQP9QOU2</div>
+    <p>New starters & casual players TH1-TH12. Friendly, supportive, no pressure.</p>
+    <a class="btn btn-main" href=" https://retsalbgub.github.io/clash-of-clans-recruitment/singleclan.html?tag=%232JQP9QOU2">Enter Clan Page</a>
+
+  </div>
+
+</div>
+
+<footer>
+  © Bug's Clan Network • War • CWL • Clan Capital • Community
+</footer>
+
+</body>
+</html>
